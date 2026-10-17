@@ -57,19 +57,25 @@ function selection(nodes = roots, out = []) {
 
 // --- rendering ---
 
+const CHEVRON = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5 6.5 5 3 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function render() {
   const tree = $('tree');
+  const scroll = tree.scrollTop;
   tree.textContent = '';
   if (!roots.length) {
     tree.innerHTML = '<div class="note">No folders found on this page.</div>';
   } else {
     tree.appendChild(renderList(roots));
   }
+  tree.scrollTop = scroll;
+  updateLinks();
   const picked = selection();
   renderSelected(picked);
   const n = picked.length;
   $('go').disabled = n === 0;
   $('go').textContent = n === 0 ? 'Select folders to download' : `Download ${n} item${n === 1 ? '' : 's'} as Markdown`;
+  prefetch();
 }
 
 // Plain-words list of exactly what will be downloaded, with × to remove an item.
@@ -111,8 +117,8 @@ function renderNode(node) {
   row.className = `row${node.isFolder === false ? ' question' : ''}`;
 
   const twisty = document.createElement('button');
-  twisty.className = 'twisty';
-  twisty.textContent = node.open ? '▾' : '▸';
+  twisty.className = `chev${node.open ? ' open' : ''}`;
+  twisty.innerHTML = CHEVRON;
   twisty.disabled = node.isFolder === false || (node.loaded && !node.children.length);
   twisty.title = node.open ? 'Collapse' : 'Show contents';
   twisty.addEventListener('click', () => toggleOpen(node));
@@ -132,11 +138,11 @@ function renderNode(node) {
   label.append(box, text);
 
   row.append(twisty, label);
-  const partial = partialLabel(node);
-  if (partial) {
+  const note = node.loaded && node.isFolder && !node.children.length ? 'empty' : partialLabel(node);
+  if (note) {
     const count = document.createElement('span');
     count.className = 'count';
-    count.textContent = partial;
+    count.textContent = note;
     row.appendChild(count);
   }
   li.appendChild(row);
@@ -147,13 +153,77 @@ function renderNode(node) {
   return li;
 }
 
-async function load(node) {
-  if (node.loaded) return;
-  const res = await send({ type: 'wlx-list', url: node.url });
-  if (!res || !res.ok) throw new Error((res && res.error) || 'Could not load folder');
-  node.children = res.children.map((c) => makeNode(c, node));
-  node.isFolder = res.kind === 'folder';
-  node.loaded = true;
+const isFolderish = (n) => n.isFolder !== false && !(n.loaded && !n.children.length);
+
+function walk(nodes, fn) {
+  for (const n of nodes) {
+    fn(n);
+    walk(n.children, fn);
+  }
+}
+
+function updateLinks() {
+  let anyOpen = false;
+  walk(roots, (n) => {
+    if (isFolderish(n) && n.open) anyOpen = true;
+  });
+  $('collapseAll').disabled = !anyOpen;
+}
+
+function collapseAll() {
+  walk(roots, (n) => {
+    n.open = false;
+  });
+  render();
+}
+
+// Loads a folder's contents once; concurrent callers share the same request.
+function load(node) {
+  if (node.loaded) return Promise.resolve();
+  if (!node.loadPromise) {
+    node.loadPromise = send({ type: 'wlx-list', url: node.url })
+      .then((res) => {
+        if (!res || !res.ok) throw new Error((res && res.error) || 'Could not load folder');
+        node.children = res.children.map((c) => makeNode(c, node));
+        node.isFolder = res.kind === 'folder';
+        node.loaded = true;
+      })
+      .catch((e) => {
+        node.loadPromise = null;
+        node.loadFailed = true;
+        throw e;
+      });
+  }
+  return node.loadPromise;
+}
+
+// Visible folders whose contents aren't known yet (so we can't tell if they're empty).
+function visibleUnloaded(nodes = roots, out = []) {
+  for (const n of nodes) {
+    if (!n.loaded && !n.loadPromise && !n.loadFailed && n.isFolder !== false) out.push(n);
+    if (n.open) visibleUnloaded(n.children, out);
+  }
+  return out;
+}
+
+// Loads visible folders one level ahead in the background, so empty folders never
+// show an expand arrow and opening a folder is instant.
+let prefetching = false;
+async function prefetch() {
+  if (prefetching) return;
+  prefetching = true;
+  try {
+    for (let batch = visibleUnloaded(); batch.length; batch = visibleUnloaded()) {
+      const queue = [...batch];
+      const worker = async () => {
+        for (let n = queue.shift(); n; n = queue.shift()) await load(n).catch(() => {});
+      };
+      await Promise.all([worker(), worker(), worker()]);
+      render();
+    }
+  } finally {
+    prefetching = false;
+  }
 }
 
 async function toggleOpen(node) {
@@ -166,6 +236,7 @@ async function toggleOpen(node) {
       node.open = false;
       msg(e.message);
     }
+    if (!node.children.length) node.open = false; // turned out empty: nothing to show
     render();
   }
 }
@@ -222,6 +293,15 @@ async function init() {
   await revealCurrent(info);
   render();
 }
+
+$('infoToggle').addEventListener('click', () => {
+  const panel = $('infoPanel');
+  const show = panel.hidden;
+  panel.hidden = !show;
+  $('infoToggle').setAttribute('aria-expanded', String(show));
+});
+
+$('collapseAll').addEventListener('click', collapseAll);
 
 $('go').addEventListener('click', async () => {
   const items = selection().map((n) => ({ url: n.url, path: n.path }));

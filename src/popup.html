@@ -3,47 +3,119 @@
   <head>
     <meta charset="utf-8" />
     <style>
-      body { width: 360px; margin: 0; padding: 14px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #222; }
-      h1 { font-size: 15px; margin: 0; }
-      #course { color: #666; margin: 2px 0 10px; min-height: 1em; }
-      #tree { border: 1px solid #ddd; border-radius: 6px; max-height: 340px; min-height: 60px; overflow-y: auto; padding: 4px 0; margin-bottom: 10px; }
+      :root {
+        --bg: #ffffff;
+        --surface: #f6f7f9;
+        --border: #e3e6ea;
+        --text: #1d2330;
+        --muted: #6b7380;
+        --hover: #eceff3;
+        --navy: #0b2f6b;
+        --orange: #ff5a00;
+        --orange-hover: #e65100;
+        --danger: #c62828;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1c1f24;
+          --surface: #23272e;
+          --border: #343a43;
+          --text: #e7e9ec;
+          --muted: #9aa1ab;
+          --hover: #2c313a;
+          --navy: #8fb3ff;
+          --danger: #ff7b7b;
+        }
+      }
+      * { box-sizing: border-box; }
+      body { width: 380px; margin: 0; padding: 14px; background: var(--bg); color: var(--text); font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+      header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+      header img { width: 28px; height: 28px; }
+      h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+      #course { color: var(--muted); font-size: 12px; min-height: 1em; }
+
+      .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+      .toolbar .label { font-size: 12px; font-weight: 600; color: var(--muted); }
+      .links { display: flex; gap: 10px; }
+      .link { border: 0; background: none; padding: 0; font: inherit; font-size: 12px; color: var(--navy); cursor: pointer; }
+      .link:hover { text-decoration: underline; }
+      .link:disabled { color: var(--muted); cursor: default; text-decoration: none; }
+
+      #tree { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; max-height: 300px; min-height: 64px; overflow-y: auto; padding: 4px; margin-bottom: 12px; }
       ul { list-style: none; margin: 0; padding: 0; }
-      ul ul { padding-left: 18px; }
-      .row { display: flex; align-items: center; gap: 4px; padding: 2px 8px; }
-      .row:hover { background: #f3f6f8; }
-      .twisty { width: 16px; flex: none; border: 0; background: none; padding: 0; color: #888; cursor: pointer; font-size: 11px; }
-      .twisty[disabled] { cursor: default; visibility: hidden; }
-      .row label { display: flex; align-items: center; gap: 6px; cursor: pointer; flex: 1; min-width: 0; }
+      ul ul { padding-left: 16px; }
+      .row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 6px; }
+      .row:hover { background: var(--hover); }
+      .chev { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 0; background: none; padding: 0; color: var(--muted); cursor: pointer; border-radius: 4px; }
+      .chev svg { width: 10px; height: 10px; }
+      .chev.open svg { transform: rotate(90deg); }
+      .chev[disabled] { visibility: hidden; }
+      .row label { display: flex; align-items: center; gap: 7px; cursor: pointer; flex: 1; min-width: 0; }
       .row label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .question span { color: #555; }
-      .note { color: #888; padding: 2px 8px 2px 28px; font-size: 12px; }
-      .count { flex: none; color: #888; font-size: 11px; }
-      #selected { margin-bottom: 10px; }
-      #selected h2 { font-size: 12px; font-weight: 600; margin: 0 0 4px; color: #444; }
-      #selected .item { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
-      #selected .item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
-      #selected .item button { flex: none; border: 0; background: none; color: #999; cursor: pointer; font-size: 14px; padding: 0 4px; }
-      #selected .item button:hover { color: #c33; }
-      .opt { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px; cursor: pointer; }
-      .opt small { display: block; color: #777; }
-      .opt input { margin-top: 2px; }
-      button#go { width: 100%; padding: 8px; font: inherit; font-weight: 600; color: #fff; background: #00a6d6; border: 0; border-radius: 6px; cursor: pointer; }
-      button#go:disabled { background: #9bb; cursor: default; }
-      #msg { margin-top: 10px; color: #a33; min-height: 1em; }
+      .question label span { color: var(--muted); }
+      input[type="checkbox"] { accent-color: var(--navy); margin: 0; width: 14px; height: 14px; flex: none; }
+      .count { flex: none; color: var(--muted); font-size: 11px; }
+      .note { color: var(--muted); padding: 4px 8px 4px 30px; font-size: 12px; }
+
+      #selected { margin-bottom: 12px; }
+      #selected h2 { font-size: 12px; font-weight: 600; margin: 0 0 4px; color: var(--muted); }
+      #selected .item { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+      #selected .item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #selected .item button { flex: none; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; border-radius: 4px; }
+      #selected .item button:hover { color: var(--danger); background: var(--hover); }
+
+      .opt-row { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+      .opt { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+      .info { width: 16px; height: 16px; flex: none; display: grid; place-items: center; padding: 0; border: 1px solid var(--muted); border-radius: 50%; background: none; color: var(--muted); font: italic 600 10px/1 Georgia, serif; cursor: pointer; }
+      .info:hover { border-color: var(--navy); color: var(--navy); }
+      .info[aria-expanded="true"] { border-color: var(--navy); background: var(--navy); color: var(--bg); }
+      #infoPanel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin: -4px 0 12px; }
+      #infoPanel h3 { font-size: 12px; font-weight: 600; margin: 0 0 4px; }
+      #infoPanel h3 span { color: var(--muted); font-weight: 400; }
+      #infoPanel img { display: block; width: 100%; border-radius: 6px; border: 1px solid var(--border); }
+      #infoPanel img + h3 { margin-top: 10px; }
+
+      button#go { width: 100%; padding: 9px; font: inherit; font-weight: 600; color: #fff; background: var(--orange); border: 0; border-radius: 8px; cursor: pointer; }
+      button#go:hover:not(:disabled) { background: var(--orange-hover); }
+      button#go:disabled { background: var(--border); color: var(--muted); cursor: default; }
+      #msg { margin-top: 8px; color: var(--danger); font-size: 12px; min-height: 1em; }
+
     </style>
   </head>
   <body>
-    <h1>WebLab Downloader</h1>
-    <div id="course"></div>
+    <header>
+      <img src="../icons/icon48.png" alt="" />
+      <div>
+        <h1>WebLab Downloader</h1>
+        <div id="course"></div>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <span class="label">Folders</span>
+      <span class="links">
+        <button class="link" id="collapseAll">Collapse all</button>
+      </span>
+    </div>
     <div id="tree"><div class="note">Loading folders…</div></div>
     <div id="selected"></div>
 
-    <label class="opt">
-      <input type="checkbox" id="includeMine" />
-      <span>Include my answers<small>What you filled in or selected, with WebLab's ✓/✗ if shown. Published model answers are always included.</small></span>
-    </label>
+    <div class="opt-row">
+      <label class="opt">
+        <input type="checkbox" id="includeMine" />
+        <span>Include my answers</span>
+      </label>
+      <button class="info" id="infoToggle" aria-expanded="false" aria-controls="infoPanel" title="What does this do?">i</button>
+    </div>
+    <div id="infoPanel" hidden>
+      <h3>Toggle OFF: <span>question + model answer</span></h3>
+      <img src="img/answers-off.png" alt="Question with no answer selected" />
+      <h3>Toggle ON: <span>question + model answer + my answer</span></h3>
+      <img src="img/answers-on.png" alt="Question showing your submitted answer marked wrong" />
+    </div>
 
-    <button id="go" disabled>Download for AI</button>
+    <button id="go" disabled>Select folders to download</button>
     <div id="msg"></div>
     <script src="popup.js"></script>
   </body>
