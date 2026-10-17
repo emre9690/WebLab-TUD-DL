@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "WebLab Downloader",
+  "version": "0.1.0",
+  "description": "Download a whole WebLab folder (questions, your answers, published model answers) as an AI-ready zip.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://weblab.tudelft.nl/*"],
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "WebLab Downloader"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://weblab.tudelft.nl/*"],
+      "js": [
+        "src/zip.js",
+        "src/markdown.js",
+        "src/extract.js",
+        "src/crawler.js",
+        "src/output.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
