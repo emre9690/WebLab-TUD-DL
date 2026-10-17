@@ -32,11 +32,26 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
 
   // Locked answers are treated exactly like unpublished ones.
   const hasModelAnswer = (node) => !!(node.modelAnswer && node.modelAnswer.status === 'available');
+  // Options WebLab marked ✓ after you submitted (shown even if you picked something else).
+  const shownCorrect = (node) => (node.options || []).filter((o) => o.feedback === 'correct');
+
+  function answerSource(node) {
+    if (hasModelAnswer(node)) return 'model-answer';
+    if (shownCorrect(node).length) return 'weblab-feedback';
+    return 'none';
+  }
 
   function renderModelAnswer(node) {
     const a = node.modelAnswer;
-    if (a && a.status === 'error') return `**Model answer:** could not be loaded (${a.error}).`;
-    if (!hasModelAnswer(node)) return '**Model answer:** none published.';
+    if (!hasModelAnswer(node)) {
+      const shown = shownCorrect(node);
+      if (shown.length) {
+        const lines = shown.map((o) => `- ${letterFor(node.options, o.text)}) ${indent(o.text, 5)}`);
+        return `**Correct answer (shown by WebLab after submitting):**\n\n${lines.join('\n')}`;
+      }
+      if (a && a.status === 'error') return `**Model answer:** could not be loaded (${a.error}).`;
+      return '**Model answer:** none published.';
+    }
 
     const parts = ['**Model answer (published by course staff):**'];
     if (a.correct) {
@@ -96,6 +111,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     const mine = renderMyAnswer(node, opts);
     if (mine) out.push(mine);
     out.push(renderModelAnswer(node));
+    for (const e of node.explanations || []) out.push(`**${e.title} (from WebLab):**\n\n${e.text}`);
     return out.join('\n\n');
   }
 
@@ -136,7 +152,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
         type: node.type,
         weight: node.weight ? Number(node.weight) : null,
         url: node.url,
-        hasModelAnswer: hasModelAnswer(node),
+        correctAnswer: answerSource(node),
       });
     } else if (node.kind === 'error') {
       out.push({ path: path.join(SEP), url: node.url, error: node.error });
