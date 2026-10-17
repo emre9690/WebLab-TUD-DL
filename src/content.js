@@ -31,14 +31,22 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     };
   }
 
-  // Pages without a breadcrumb chain (e.g. the course home): offer every assignment linked on the page.
-  function linkedAssignments() {
+  // "/cse2520/2026-2027/" when the page belongs to a course; null on the WebLab home
+  // page, profile, support etc. (those can link to old activity in other courses).
+  function coursePrefix() {
+    const m = location.pathname.match(/^\/[^/]+\/[^/]+\//);
+    if (!m || /^\/(profile|support|newcourserequest|markdown-cheatsheet)\//i.test(m[0])) return null;
+    return m[0];
+  }
+
+  // Pages without a breadcrumb chain (e.g. the course home): offer this course's assignments linked on the page.
+  function linkedAssignments(prefix) {
     const seen = new Set();
     const out = [];
     for (const a of document.querySelectorAll('#maincontainer a[href*="/assignment/"]')) {
       const id = WLX.assignmentId(a.href);
       const title = a.textContent.replace(/\s+/g, ' ').trim();
-      if (!id || !title || seen.has(id)) continue;
+      if (!id || !title || seen.has(id) || !new URL(a.href).pathname.startsWith(prefix)) continue;
       seen.add(id);
       out.push({ id, title, url: a.href.split('#')[0], isFolder: null });
     }
@@ -101,7 +109,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
       ui.remove();
     });
 
-    const opts = { includeMine: !!options.includeMine, delayMs: 300 };
+    const opts = { includeMine: !!options.includeMine, includeImages: options.includeImages !== false, delayMs: 300 };
 
     try {
       const result = await WLX.crawl(
@@ -121,7 +129,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
       const { zipName, blob, questionCount } = WLX.buildZip(result, opts);
       save(blob, zipName);
       const failed = result.stats.errors + result.images.filter((i) => i.error).length;
-      ui.status(`Done: ${questionCount} question${questionCount === 1 ? '' : 's'} saved to ${zipName}${failed ? ` (${failed} item(s) failed, see index.json)` : ''}`);
+      ui.status(`Done: ${questionCount} question${questionCount === 1 ? '' : 's'} saved to ${zipName}${failed ? ` (${failed} item(s) failed, marked in the files)` : ''}`);
       ui.current('');
     } catch (e) {
       if (e.name === 'AbortError') return;
@@ -135,11 +143,13 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
 
   async function handle(msg) {
     if (msg.type === 'wlx-course') {
+      const prefix = coursePrefix();
+      if (!prefix) return { ok: true, running: !!running, inCourse: false };
       const info = courseInfo();
       let top = [];
       if (info.rootUrl) top = (await listFolder(info.rootUrl)).children;
-      if (!top.length) top = linkedAssignments();
-      return { ok: true, running: !!running, ...info, top };
+      if (!top.length) top = linkedAssignments(prefix);
+      return { ok: true, running: !!running, inCourse: true, ...info, top };
     }
     if (msg.type === 'wlx-list') return { ok: true, ...(await listFolder(msg.url)) };
     if (msg.type === 'wlx-start') {

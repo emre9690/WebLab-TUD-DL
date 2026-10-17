@@ -116,7 +116,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     }
 
     // Download images last, so a broken image never stops the crawl.
-    for (const [i, img] of images.list.entries()) {
+    for (const [i, img] of (opts.includeImages ? images.list : []).entries()) {
       onProgress({ ...stats, current: `Image ${i + 1} of ${images.list.length}` });
       try {
         const res = await fetch(img.url, { credentials: 'include', signal });

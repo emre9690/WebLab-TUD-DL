@@ -14,15 +14,25 @@ Pick one or more folders, and you get a zip with:
 | --- | --- |
 | `ALL_CONTENT.md` | Everything you picked in one file. **This is the one to upload to an AI.** |
 | One `.md` per exam/section | The same content, split up, if you only want one exam. |
-| `images/` | Figures from the questions. Upload them together with the Markdown when a question has a figure. |
-| `index.json` | A list of all questions (type, weight, link) for your own scripts. |
+| `images/` | Figures from the questions. Upload them together with the Markdown when a question has a figure. Turn off **Include images** to skip them. |
+
+Upload the `.md` file itself rather than the whole zip. Not every AI tool accepts zips, and those that do often only skim parts of the files inside.
 
 Every question includes its full folder path (e.g. `Exam Practice › Old Endterm Exam (04-11-2025) › Unix I`), the question text, options or code, and the correct answer when WebLab shows one:
 
 - a **model answer** published by the teacher, or
 - for multiple choice you already submitted, the **correct option and explanation** WebLab shows afterwards.
 
-Turn on **Include my answers** to also add what you answered.
+## Options
+
+Two checkboxes in the popup decide what goes in the download. Click the ⓘ next to each one for a quick explanation.
+
+| Option | On | Off |
+| --- | --- | --- |
+| **Include my answers** | Also adds what you answered, with WebLab's ✓/✗ | Question and model answer only |
+| **Include images** (on by default) | Figures are saved in `images/` | Text only, figures are left out |
+
+The popup remembers your choices.
 
 ## Install
 
@@ -40,11 +50,15 @@ To update: download the ZIP again, replace the folder, and click ↻ on the exte
 
 ## Use
 
-1. Log in to WebLab and open any page of a course.
-2. Click the extension, tick the folders you want, and press **Download**.
-3. Keep the tab open until the box in the corner says **Done**. It loads one page about every 0.3 seconds, so a full exam takes a minute or two.
+1. Log in to WebLab and open any page **inside a course** (not the WebLab home page).
+2. Click the extension. You'll see the course's folders; the folder you're on is already ticked. Click › to look inside a folder, and tick everything you want. Ticking a folder includes everything in it.
+3. Check the **Will download** list, then press **Download**.
+4. Keep the tab open until the box in the corner says **Done**. It loads one page about every 0.3 seconds, so a full exam takes a minute or two.
 
-If the folder list doesn't appear, reload the WebLab page and try again.
+**Troubleshooting**
+
+- *"Open a course first"*: you're on the WebLab home page or your profile. Click one of your courses, then open the extension again.
+- *The folder list doesn't appear*: reload the WebLab page and try again.
 
 ## Privacy and safety
 

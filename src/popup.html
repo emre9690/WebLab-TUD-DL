@@ -70,11 +70,12 @@
       .info { width: 16px; height: 16px; flex: none; display: grid; place-items: center; padding: 0; border: 1px solid var(--muted); border-radius: 50%; background: none; color: var(--muted); font: italic 600 10px/1 Georgia, serif; cursor: pointer; }
       .info:hover { border-color: var(--navy); color: var(--navy); }
       .info[aria-expanded="true"] { border-color: var(--navy); background: var(--navy); color: var(--bg); }
-      #infoPanel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin: -4px 0 12px; }
-      #infoPanel h3 { font-size: 12px; font-weight: 600; margin: 0 0 4px; }
-      #infoPanel h3 span { color: var(--muted); font-weight: 400; }
-      #infoPanel img { display: block; width: 100%; border-radius: 6px; border: 1px solid var(--border); }
-      #infoPanel img + h3 { margin-top: 10px; }
+      .info-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin: -4px 0 12px; }
+      .info-panel h3 { font-size: 12px; font-weight: 600; margin: 0 0 4px; }
+      .info-panel h3 + h3 { margin-top: 6px; }
+      .info-panel h3 span { color: var(--muted); font-weight: 400; }
+      .info-panel img { display: block; width: 100%; border-radius: 6px; border: 1px solid var(--border); }
+      .info-panel img + h3 { margin-top: 10px; }
 
       button#go { width: 100%; padding: 9px; font: inherit; font-weight: 600; color: #fff; background: var(--orange); border: 0; border-radius: 8px; cursor: pointer; }
       button#go:hover:not(:disabled) { background: var(--orange-hover); }
@@ -108,11 +109,23 @@
       </label>
       <button class="info" id="infoToggle" aria-expanded="false" aria-controls="infoPanel" title="What does this do?">i</button>
     </div>
-    <div id="infoPanel" hidden>
+    <div id="infoPanel" class="info-panel" hidden>
       <h3>Toggle OFF: <span>question + model answer</span></h3>
       <img src="img/answers-off.png" alt="Question with no answer selected" />
       <h3>Toggle ON: <span>question + model answer + my answer</span></h3>
       <img src="img/answers-on.png" alt="Question showing your submitted answer marked wrong" />
+    </div>
+
+    <div class="opt-row">
+      <label class="opt">
+        <input type="checkbox" id="includeImages" />
+        <span>Include images</span>
+      </label>
+      <button class="info" id="infoImagesToggle" aria-expanded="false" aria-controls="infoImagesPanel" title="What does this do?">i</button>
+    </div>
+    <div id="infoImagesPanel" class="info-panel" hidden>
+      <h3>Toggle OFF: <span>text only, figures are left out</span></h3>
+      <h3>Toggle ON: <span>text + figures, saved in the images folder</span></h3>
     </div>
 
     <button id="go" disabled>Select folders to download</button>
