@@ -1,5 +1,5 @@
 // Renders crawled sections into an AI-friendly zip: one combined Markdown file,
-// one file per exam/section, images and an index.
+// one file per exam/section, and images.
 var WLX = globalThis.WLX || (globalThis.WLX = {});
 
 (() => {
@@ -34,12 +34,6 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
   const hasModelAnswer = (node) => !!(node.modelAnswer && node.modelAnswer.status === 'available');
   // Options WebLab marked ✓ after you submitted (shown even if you picked something else).
   const shownCorrect = (node) => (node.options || []).filter((o) => o.feedback === 'correct');
-
-  function answerSource(node) {
-    if (hasModelAnswer(node)) return 'model-answer';
-    if (shownCorrect(node).length) return 'weblab-feedback';
-    return 'none';
-  }
 
   function renderModelAnswer(node) {
     const a = node.modelAnswer;
@@ -135,30 +129,16 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     const n = units.reduce((sum, u) => sum + countQuestions(u.node), 0);
     const lines = [
       `# ${title}`,
-      `Downloaded from TU Delft WebLab on ${date} · ${n} question${n === 1 ? '' : 's'} · my answers: ${opts.includeMine ? 'included' : 'not included'} · model answers: included where the teacher published them`,
-      'How to read this file: every heading shows the full WebLab folder path (Folder › Subfolder › Question). Figures are stored in the images/ folder next to this file; each one is referenced by filename where it appears.',
+      `Downloaded from TU Delft WebLab on ${date} · ${n} question${n === 1 ? '' : 's'} · my answers: ${opts.includeMine ? 'included' : 'not included'} · model answers: included where the teacher published them · images: ${opts.includeImages ? 'included' : 'not included'}`,
+      'How to read this file: every heading shows the full WebLab folder path (Folder › Subfolder › Question). ' +
+        (opts.includeImages
+          ? 'Figures are stored in the images/ folder next to this file; each one is referenced by filename where it appears.'
+          : 'Figures were left out; "[Figure not included]" marks where one was.'),
     ];
     if (units.length > 1) {
       lines.push('**Contents:**\n\n' + units.map((u) => `- ${u.path.join(SEP)} (${countQuestions(u.node)} questions)`).join('\n'));
     }
     return lines.join('\n\n');
-  }
-
-  function indexEntries(node, path, out = []) {
-    if (node.kind === 'question') {
-      out.push({
-        path: path.join(SEP),
-        title: node.title,
-        type: node.type,
-        weight: node.weight ? Number(node.weight) : null,
-        url: node.url,
-        correctAnswer: answerSource(node),
-      });
-    } else if (node.kind === 'error') {
-      out.push({ path: path.join(SEP), url: node.url, error: node.error });
-    }
-    for (const c of node.items || []) indexEntries(c, [...path, c.title], out);
-    return out;
   }
 
   // One file per selected item; a single selected folder is split by its subfolders
@@ -187,7 +167,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
 
     const imageFor = new Map(images.map((img) => [img.token, img]));
     const withImages = (md) =>
-      md.replace(/@@WLX_IMG_\d+@@/g, (tok) => {
+      (opts.includeImages ? md : md.replace(/!\[[^\]]*\]\(@@WLX_IMG_\d+@@\)/g, '*[Figure not included]*')).replace(/@@WLX_IMG_\d+@@/g, (tok) => {
         const img = imageFor.get(tok);
         if (!img) return tok;
         return img.bytes ? `images/${img.file}` : img.url;
@@ -203,16 +183,6 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
 
     for (const img of images) if (img.bytes) zip.add(`${root}/images/${img.file}`, img.bytes);
 
-    const index = {
-      source: 'TU Delft WebLab',
-      course,
-      edition: (first && first.node.edition) || '',
-      downloadedAt: new Date().toISOString(),
-      includesMyAnswers: !!opts.includeMine,
-      selected: sections.map((s) => ({ path: s.path.join(SEP), url: s.node.url })),
-      questions: sections.flatMap((s) => indexEntries(s.node, s.path)),
-    };
-    zip.add(`${root}/index.json`, JSON.stringify(index, null, 2));
 
     const questionCount = sections.reduce((n, s) => n + countQuestions(s.node), 0);
     return { zipName: `${root}.zip`, blob: zip.toBlob(), questionCount };

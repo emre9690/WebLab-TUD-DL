@@ -1,5 +1,5 @@
 // Folder picker: shows the course's folder tree (loaded lazily) with checkboxes.
-const DEFAULTS = { includeMine: true };
+const DEFAULTS = { includeMine: true, includeImages: true };
 const $ = (id) => document.getElementById(id);
 const msg = (s) => ($('msg').textContent = s);
 
@@ -264,8 +264,10 @@ async function revealCurrent(info) {
 
 async function init() {
   const saved = await chrome.storage.sync.get(DEFAULTS);
-  $('includeMine').checked = saved.includeMine;
-  $('includeMine').addEventListener('change', () => chrome.storage.sync.set({ includeMine: $('includeMine').checked }));
+  for (const key of Object.keys(DEFAULTS)) {
+    $(key).checked = saved[key];
+    $(key).addEventListener('change', () => chrome.storage.sync.set({ [key]: $(key).checked }));
+  }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !/^https:\/\/weblab\.tudelft\.nl\//.test(tab.url || '')) {
@@ -286,6 +288,11 @@ async function init() {
     msg((info && info.error) || '');
     return;
   }
+  if (!info.inCourse) {
+    $('tree').innerHTML = '<div class="note">Open a course first: click one of your courses on the WebLab home page, then open this again.</div>';
+    $('collapseAll').disabled = true;
+    return;
+  }
   $('course').textContent = [info.course, info.edition].filter(Boolean).join(' · ');
   if (info.running) msg('A download is already running in this tab.');
 
@@ -294,19 +301,22 @@ async function init() {
   render();
 }
 
-$('infoToggle').addEventListener('click', () => {
-  const panel = $('infoPanel');
-  const show = panel.hidden;
-  panel.hidden = !show;
-  $('infoToggle').setAttribute('aria-expanded', String(show));
-});
+// Each ⓘ button shows/hides the panel named in its aria-controls.
+for (const button of document.querySelectorAll('.info')) {
+  button.addEventListener('click', () => {
+    const panel = $(button.getAttribute('aria-controls'));
+    const show = panel.hidden;
+    panel.hidden = !show;
+    button.setAttribute('aria-expanded', String(show));
+  });
+}
 
 $('collapseAll').addEventListener('click', collapseAll);
 
 $('go').addEventListener('click', async () => {
   const items = selection().map((n) => ({ url: n.url, path: n.path }));
   try {
-    const res = await send({ type: 'wlx-start', items, options: { includeMine: $('includeMine').checked } });
+    const res = await send({ type: 'wlx-start', items, options: { includeMine: $('includeMine').checked, includeImages: $('includeImages').checked } });
     if (res && res.ok) window.close();
     else msg((res && res.error) || 'Could not start.');
   } catch {
