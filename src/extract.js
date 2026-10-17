@@ -97,14 +97,34 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     return labels
       .map((label) => {
         const input = label.querySelector('input');
+        // After submitting, WebLab puts a ✓ icon on every correct option (picked or not)
+        // and a ✗ on wrong picks; the background colour only marks your own pick.
+        const icon = label.querySelector('.mcq-feedback-icon');
         const fb = label.querySelector('.mcq-feedback');
+        let feedback = null;
+        if (icon && icon.querySelector('.glyphicon-ok')) feedback = 'correct';
+        else if (icon && icon.querySelector('.glyphicon-remove')) feedback = 'wrong';
+        else if (fb && fb.classList.contains('bg-success')) feedback = 'correct';
+        else if (fb && fb.classList.contains('bg-danger')) feedback = 'wrong';
         return {
           text: md(label.querySelector('.wikitext') || label, url, ctx),
           checked: !!(input && (input.checked || input.hasAttribute('checked'))),
-          feedback: fb && fb.classList.contains('bg-success') ? 'correct' : fb && fb.classList.contains('bg-danger') ? 'wrong' : null,
+          feedback,
         };
       })
       .filter((o) => o.text && o.text.toLowerCase() !== 'no answer');
+  }
+
+  // Titled boxes WebLab shows under a question after submitting, e.g. "Explanation of Correct Answer".
+  function parseExplanations(footer, url, ctx) {
+    const out = [];
+    for (const panel of footer.querySelectorAll('.panel')) {
+      if (panel.closest('.modal')) continue;
+      const title = text(panel.querySelector('.panel-heading .panel-title, .panel-heading'));
+      const body = md(panel.querySelector('.panel-body'), url, ctx);
+      if (title && body) out.push({ title, text: body });
+    }
+    return out;
   }
 
   function parseQuestion(doc, url, base, ctx) {
@@ -122,6 +142,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     }
 
     const footer = q && q.querySelector('.panel-footer');
+    out.explanations = footer ? parseExplanations(footer, url, ctx) : [];
     const options = footer ? parseOptions(footer, url, ctx) : [];
     if (options.length) {
       out.type = 'multiple-choice';
