@@ -17,7 +17,10 @@ It only works on `weblab.tudelft.nl`. It does not read any other website.
 
 ## What the extension stores
 
-Only your two settings ("Include my answers" and "Include images"), saved with Chrome's storage so the popup remembers them. Nothing else is stored.
+- Your two settings ("Include my answers" and "Include images"), saved with Chrome's storage so the popup remembers them.
+- The names and links of WebLab folders you open in the popup, kept for up to 30 minutes in Chrome's temporary session memory so the same folders aren't requested from WebLab again. This is never written to disk and is cleared when you close the browser.
+
+Nothing else is stored.
 
 ## What the extension sends
 

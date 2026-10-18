@@ -53,7 +53,7 @@ To update: download the ZIP again, replace the folder, and click ↻ on the exte
 1. Log in to WebLab and open any page **inside a course** (not the WebLab home page).
 2. Click the extension. You'll see the course's folders; the folder you're on is already ticked. Click › to look inside a folder, and tick everything you want. Ticking a folder includes everything in it.
 3. Check the **Will download** list, then press **Download**.
-4. Keep the tab open until the box in the corner says **Done**. It loads one page about every 0.3 seconds, so a full exam takes a minute or two.
+4. Keep the tab open until the box in the corner says **Done**. It loads one page at a time, about three per second, so a full exam takes a minute or two.
 
 **Troubleshooting**
 
@@ -68,6 +68,7 @@ To update: download the ZIP again, replace the folder, and click ↻ on the exte
 - It **never unlocks** locked answers (WebLab shows course staff when you unlock one). Locked answers are skipped.
 - Nothing is sent anywhere. The zip is built on your computer.
 - It can only download what your account can already see.
+- It's deliberately gentle on WebLab: one request at a time, at most about three per second, folders are only loaded when you open them (and remembered for 30 minutes), and it stops if WebLab reports it's busy.
 
 ## Please use it responsibly
 
