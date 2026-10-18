@@ -109,7 +109,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
       ui.remove();
     });
 
-    const opts = { includeMine: !!options.includeMine, includeImages: options.includeImages !== false, delayMs: 300 };
+    const opts = { includeMine: !!options.includeMine, includeImages: options.includeImages !== false };
 
     try {
       const result = await WLX.crawl(
@@ -146,9 +146,8 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
       const prefix = coursePrefix();
       if (!prefix) return { ok: true, running: !!running, inCourse: false };
       const info = courseInfo();
-      let top = [];
-      if (info.rootUrl) top = (await listFolder(info.rootUrl)).children;
-      if (!top.length) top = linkedAssignments(prefix);
+      // The popup loads the top folder itself (rootUrl), so it can use its cache.
+      const top = info.rootUrl ? null : linkedAssignments(prefix);
       return { ok: true, running: !!running, inCourse: true, ...info, top };
     }
     if (msg.type === 'wlx-list') return { ok: true, ...(await listFolder(msg.url)) };

@@ -75,7 +75,6 @@ function render() {
   const n = picked.length;
   $('go').disabled = n === 0;
   $('go').textContent = n === 0 ? 'Select folders to download' : `Download ${n} item${n === 1 ? '' : 's'} as Markdown`;
-  prefetch();
 }
 
 // Plain-words list of exactly what will be downloaded, with × to remove an item.
@@ -119,7 +118,7 @@ function renderNode(node) {
   const twisty = document.createElement('button');
   twisty.className = `chev${node.open ? ' open' : ''}`;
   twisty.innerHTML = CHEVRON;
-  twisty.disabled = node.isFolder === false || (node.loaded && !node.children.length);
+  twisty.disabled = node.isFolder === false;
   twisty.title = node.open ? 'Collapse' : 'Show contents';
   twisty.addEventListener('click', () => toggleOpen(node));
 
@@ -149,11 +148,12 @@ function renderNode(node) {
   if (node.open) {
     if (!node.loaded) li.insertAdjacentHTML('beforeend', '<div class="note">Loading…</div>');
     else if (node.children.length) li.appendChild(renderList(node.children));
+    else li.insertAdjacentHTML('beforeend', '<div class="note">Empty folder</div>');
   }
   return li;
 }
 
-const isFolderish = (n) => n.isFolder !== false && !(n.loaded && !n.children.length);
+const isFolderish = (n) => n.isFolder !== false;
 
 function walk(nodes, fn) {
   for (const n of nodes) {
@@ -177,53 +177,46 @@ function collapseAll() {
   render();
 }
 
-// Loads a folder's contents once; concurrent callers share the same request.
+// Folder lists are remembered for 30 minutes in Chrome's in-memory session storage
+// (cleared when the browser closes), so moving around WebLab and reopening the
+// popup doesn't request the same folders again.
+const CACHE_MS = 30 * 60 * 1000;
+
+async function listFolder(url) {
+  const key = `folder:${url}`;
+  try {
+    const hit = (await chrome.storage.session.get(key))[key];
+    if (hit && Date.now() - hit.t < CACHE_MS) return hit.data;
+  } catch {
+    // No cache available: just ask WebLab.
+  }
+  const res = await send({ type: 'wlx-list', url });
+  if (!res || !res.ok) throw new Error((res && res.error) || 'Could not load folder');
+  const data = { kind: res.kind, children: res.children };
+  try {
+    await chrome.storage.session.set({ [key]: { t: Date.now(), data } });
+  } catch {
+    // Caching is only an optimisation.
+  }
+  return data;
+}
+
+// Loads a folder's contents once, only when it's opened; concurrent callers share the request.
 function load(node) {
   if (node.loaded) return Promise.resolve();
   if (!node.loadPromise) {
-    node.loadPromise = send({ type: 'wlx-list', url: node.url })
+    node.loadPromise = listFolder(node.url)
       .then((res) => {
-        if (!res || !res.ok) throw new Error((res && res.error) || 'Could not load folder');
         node.children = res.children.map((c) => makeNode(c, node));
         node.isFolder = res.kind === 'folder';
         node.loaded = true;
       })
       .catch((e) => {
         node.loadPromise = null;
-        node.loadFailed = true;
         throw e;
       });
   }
   return node.loadPromise;
-}
-
-// Visible folders whose contents aren't known yet (so we can't tell if they're empty).
-function visibleUnloaded(nodes = roots, out = []) {
-  for (const n of nodes) {
-    if (!n.loaded && !n.loadPromise && !n.loadFailed && n.isFolder !== false) out.push(n);
-    if (n.open) visibleUnloaded(n.children, out);
-  }
-  return out;
-}
-
-// Loads visible folders one level ahead in the background, so empty folders never
-// show an expand arrow and opening a folder is instant.
-let prefetching = false;
-async function prefetch() {
-  if (prefetching) return;
-  prefetching = true;
-  try {
-    for (let batch = visibleUnloaded(); batch.length; batch = visibleUnloaded()) {
-      const queue = [...batch];
-      const worker = async () => {
-        for (let n = queue.shift(); n; n = queue.shift()) await load(n).catch(() => {});
-      };
-      await Promise.all([worker(), worker(), worker()]);
-      render();
-    }
-  } finally {
-    prefetching = false;
-  }
 }
 
 async function toggleOpen(node) {
@@ -236,7 +229,7 @@ async function toggleOpen(node) {
       node.open = false;
       msg(e.message);
     }
-    if (!node.children.length) node.open = false; // turned out empty: nothing to show
+    if (node.isFolder === false) node.open = false; // turned out to be a question, not a folder
     render();
   }
 }
@@ -296,7 +289,17 @@ async function init() {
   $('course').textContent = [info.course, info.edition].filter(Boolean).join(' · ');
   if (info.running) msg('A download is already running in this tab.');
 
-  roots.push(...info.top.map((item) => makeNode(item, null)));
+  let top = info.top || [];
+  if (info.rootUrl) {
+    try {
+      top = (await listFolder(info.rootUrl)).children;
+    } catch (e) {
+      $('tree').innerHTML = '<div class="note">Could not load this course\'s folders.</div>';
+      msg(e.message);
+      return;
+    }
+  }
+  roots.push(...top.map((item) => makeNode(item, null)));
   await revealCurrent(info);
   render();
 }

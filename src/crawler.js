@@ -4,29 +4,66 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
 (() => {
   const MAX_DEPTH = 12;
 
+  const aborted = () => new DOMException('Cancelled', 'AbortError');
   const sleep = (ms, signal) =>
     new Promise((resolve, reject) => {
-      const t = setTimeout(resolve, ms);
-      signal?.addEventListener('abort', () => {
+      if (signal?.aborted) return reject(aborted());
+      const onAbort = () => {
         clearTimeout(t);
-        reject(new DOMException('Cancelled', 'AbortError'));
-      });
+        reject(aborted());
+      };
+      const t = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
+      signal?.addEventListener('abort', onAbort, { once: true });
     });
 
   // Problems that affect every page, so the whole download stops instead of
   // producing a zip full of empty questions.
   const fatal = (message) => Object.assign(new Error(message), { fatal: true });
 
-  async function fetchDoc(url, signal) {
+  // Every request to WebLab from this tab (folder picker, download, images) goes
+  // through this one queue: one request at a time, at least REQUEST_GAP_MS apart,
+  // so the extension can never send WebLab more than ~3 requests per second.
+  WLX.REQUEST_GAP_MS = 350;
+  let queue = Promise.resolve();
+  let lastStart = 0;
+  let pausedUntil = 0;
+
+  function politely(task, signal) {
+    const run = queue.then(async () => {
+      const wait = Math.max(lastStart + WLX.REQUEST_GAP_MS, pausedUntil) - Date.now();
+      if (wait > 0) await sleep(wait, signal);
+      if (signal?.aborted) throw aborted();
+      lastStart = Date.now();
+      return task();
+    });
+    queue = run.catch(() => {});
+    return run;
+  }
+
+  // Sends one request through the queue. If WebLab says it's overloaded, back off
+  // for a minute and stop instead of retrying.
+  async function request(url, signal) {
     let res;
     try {
-      res = await fetch(url, { credentials: 'include', signal });
+      res = await politely(() => fetch(url, { credentials: 'include', signal }), signal);
     } catch (e) {
       if (e.name === 'AbortError') throw e;
       // A dropped connection, or an expired session redirecting to TU Delft's login site.
       throw fatal("Couldn't reach WebLab. Check that you're online and still logged in, then try again.");
     }
+    if (res.status === 429 || res.status === 503) {
+      pausedUntil = Date.now() + 60_000;
+      throw fatal('WebLab is busy right now, so the download was stopped. Please try again later.');
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res;
+  }
+
+  async function fetchDoc(url, signal) {
+    const res = await request(url, signal);
     const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
     // Every logged-in WebLab page has the "Sign out" menu; without it we got a login page.
     if (!doc.querySelector('[submitid^="userMenu_signout"]')) {
@@ -76,21 +113,18 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
   }
 
   // items: [{ url, path: [titles from the course's top folder down to this item] }]
-  // opts: { includeMine, delayMs }
+  // opts: { includeMine, includeImages }. Spacing between requests comes from the shared queue.
   // onProgress({ done, current, errors })
   async function crawl(items, opts, onProgress, signal) {
     const seen = new Set();
     const images = new ImageRegistry();
     const ctx = { onImage: (img, base) => images.register(img, base) };
     const stats = { done: 0, errors: 0 };
-    let first = true;
 
     async function visit(url, trail, depth) {
       const id = WLX.assignmentId(url);
       if (id && seen.has(id)) return null;
       if (id) seen.add(id);
-      if (!first) await sleep(opts.delayMs, signal);
-      first = false;
 
       onProgress({ ...stats, current: trail.join(' › ') });
       let node;
@@ -114,7 +148,6 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
         }
       } else if (node.answerUrl) {
         try {
-          await sleep(opts.delayMs, signal);
           node.modelAnswer = WLX.parseAnswer(await fetchDoc(node.answerUrl, signal), node.answerUrl, ctx);
         } catch (e) {
           if (e.name === 'AbortError' || e.fatal) throw e;
@@ -134,14 +167,14 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     for (const [i, img] of (opts.includeImages ? images.list : []).entries()) {
       onProgress({ ...stats, current: `Image ${i + 1} of ${images.list.length}` });
       try {
-        const res = await fetch(img.url, { credentials: 'include', signal });
+        // Same queue as pages, but a broken image (e.g. on another site) only skips that image.
+        const res = await politely(() => fetch(img.url, { credentials: 'include', signal }), signal);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         img.bytes = new Uint8Array(await res.arrayBuffer());
       } catch (e) {
         if (e.name === 'AbortError') throw e;
         img.error = String(e.message || e);
       }
-      await sleep(Math.min(opts.delayMs, 150), signal);
     }
 
     return { sections, images: images.list, stats };
