@@ -13,11 +13,26 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
       });
     });
 
+  // Problems that affect every page, so the whole download stops instead of
+  // producing a zip full of empty questions.
+  const fatal = (message) => Object.assign(new Error(message), { fatal: true });
+
   async function fetchDoc(url, signal) {
-    const res = await fetch(url, { credentials: 'include', signal });
+    let res;
+    try {
+      res = await fetch(url, { credentials: 'include', signal });
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;
+      // A dropped connection, or an expired session redirecting to TU Delft's login site.
+      throw fatal("Couldn't reach WebLab. Check that you're online and still logged in, then try again.");
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
-    return new DOMParser().parseFromString(html, 'text/html');
+    const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+    // Every logged-in WebLab page has the "Sign out" menu; without it we got a login page.
+    if (!doc.querySelector('[submitid^="userMenu_signout"]')) {
+      throw fatal("You're logged out of WebLab. Log in again, then try once more.");
+    }
+    return doc;
   }
 
   function slug(s, max = 40) {
@@ -83,7 +98,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
         images.hint = trail[trail.length - 1] || '';
         node = WLX.parsePage(await fetchDoc(url, signal), url, ctx);
       } catch (e) {
-        if (e.name === 'AbortError') throw e;
+        if (e.name === 'AbortError' || e.fatal) throw e;
         stats.errors++;
         return { kind: 'error', title: trail[trail.length - 1] || url, url, error: String(e.message || e) };
       }
@@ -102,7 +117,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
           await sleep(opts.delayMs, signal);
           node.modelAnswer = WLX.parseAnswer(await fetchDoc(node.answerUrl, signal), node.answerUrl, ctx);
         } catch (e) {
-          if (e.name === 'AbortError') throw e;
+          if (e.name === 'AbortError' || e.fatal) throw e;
           node.modelAnswer = { status: 'error', error: String(e.message || e) };
         }
       }

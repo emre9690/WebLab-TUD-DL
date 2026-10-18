@@ -59,6 +59,7 @@ To update: download the ZIP again, replace the folder, and click ↻ on the exte
 
 - *"Open a course first"*: you're on the WebLab home page or your profile. Click one of your courses, then open the extension again.
 - *The folder list doesn't appear*: reload the WebLab page and try again.
+- *"You're logged out of WebLab"* or *"Couldn't reach WebLab"*: your session expired or your internet dropped. Log in again (reload the page), then start the download again.
 
 ## Privacy and safety
 
@@ -71,6 +72,8 @@ To update: download the ZIP again, replace the folder, and click ↻ on the exte
 ## Please use it responsibly
 
 Exam questions are the course staff's work. Use downloads for your own studying and don't post them publicly.
+
+**Never use it during an exam.** Only download past exams and practice material, not an exam that is currently running.
 
 ## Limitations
 
