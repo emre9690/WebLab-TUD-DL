@@ -36,17 +36,25 @@ The popup remembers your choices.
 
 ## Install
 
-It isn't in the Chrome Web Store (yet), so you install it by hand. This takes about a minute.
+1. Open **[WebLab Downloader in the Chrome Web Store](https://chromewebstore.google.com/detail/WebLab%20Downloader/kfjoehghihjmpgmdelopjkmkonaobejg)**.
+2. Click **Add to Chrome**, then **Add extension**.
+3. Pin the extension with the puzzle-piece icon in the toolbar.
+
+Also works in **Edge, Brave, Arc, Vivaldi and Opera**, which can install from the Chrome Web Store too (in Edge, click **Allow extensions from other stores** when asked). Firefox and Safari are not supported.
+
+Updates install automatically.
+
+<details>
+<summary>Install from source instead</summary>
 
 1. On this page, click **Code → Download ZIP** and unzip it.
 2. Open `chrome://extensions` in Chrome.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select the unzipped folder (the one containing `manifest.json`).
-5. Pin the extension with the puzzle-piece icon in the toolbar.
-
-Also works in **Edge, Brave, Arc, Vivaldi and Opera** (use their own extensions page, e.g. `edge://extensions`). Firefox and Safari are not supported.
 
 To update: download the ZIP again, replace the folder, and click ↻ on the extension in `chrome://extensions`.
+
+</details>
 
 ## Use
 
