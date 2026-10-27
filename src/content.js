@@ -1,3 +1,6 @@
+// Sets the _browser variable according to the browser currently used (chromium/other)
+const _browser = typeof browser !== 'undefined' ? browser : chrome;
+
 // Runs inside WebLab tabs: receives "start" from the popup, shows progress, saves the zip.
 var WLX = globalThis.WLX || (globalThis.WLX = {});
 
@@ -160,7 +163,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     return { ok: false, error: 'Unknown request' };
   }
 
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  _browser.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg || !String(msg.type).startsWith('wlx-')) return false;
     handle(msg).then(sendResponse, (e) => sendResponse({ ok: false, error: String(e.message || e) }));
     return true; // async response
