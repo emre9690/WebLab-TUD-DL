@@ -1,3 +1,6 @@
+// Sets the _browser variable according to the browser currently used (chromium/other)
+const _browser = typeof browser !== 'undefined' ? browser : chrome;
+
 // Folder picker: shows the course's folder tree (loaded lazily) with checkboxes.
 const DEFAULTS = { includeMine: true, includeImages: true };
 const $ = (id) => document.getElementById(id);
@@ -7,7 +10,7 @@ let tabId = null;
 const roots = []; // tree nodes: { id, title, url, isFolder, path, checked, parent, children, loaded, open, el }
 
 async function send(message) {
-  return chrome.tabs.sendMessage(tabId, message);
+  return _browser.tabs.sendMessage(tabId, message);
 }
 
 function makeNode(item, parent) {
@@ -185,7 +188,7 @@ const CACHE_MS = 30 * 60 * 1000;
 async function listFolder(url) {
   const key = `folder:${url}`;
   try {
-    const hit = (await chrome.storage.session.get(key))[key];
+    const hit = (await _browser.storage.session.get(key))[key];
     if (hit && Date.now() - hit.t < CACHE_MS) return hit.data;
   } catch {
     // No cache available: just ask WebLab.
@@ -194,7 +197,7 @@ async function listFolder(url) {
   if (!res || !res.ok) throw new Error((res && res.error) || 'Could not load folder');
   const data = { kind: res.kind, children: res.children };
   try {
-    await chrome.storage.session.set({ [key]: { t: Date.now(), data } });
+    await _browser.storage.session.set({ [key]: { t: Date.now(), data } });
   } catch {
     // Caching is only an optimisation.
   }
@@ -256,13 +259,13 @@ async function revealCurrent(info) {
 }
 
 async function init() {
-  const saved = await chrome.storage.sync.get(DEFAULTS);
+  const saved = await _browser.storage.sync.get(DEFAULTS);
   for (const key of Object.keys(DEFAULTS)) {
     $(key).checked = saved[key];
-    $(key).addEventListener('change', () => chrome.storage.sync.set({ [key]: $(key).checked }));
+    $(key).addEventListener('change', () => _browser.storage.sync.set({ [key]: $(key).checked }));
   }
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await _browser.tabs.query({ active: true, currentWindow: true });
   if (!tab || !/^https:\/\/weblab\.tudelft\.nl\//.test(tab.url || '')) {
     $('tree').innerHTML = '<div class="note">Open any page of a WebLab course first.</div>';
     return;
