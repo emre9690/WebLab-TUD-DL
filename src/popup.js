@@ -1,6 +1,3 @@
-// Sets the _browser variable according to the browser currently used (chromium/other)
-const _browser = typeof browser !== 'undefined' ? browser : chrome;
-
 // Folder picker: shows the course's folder tree (loaded lazily) with checkboxes.
 const DEFAULTS = { includeMine: true, includeImages: true };
 const $ = (id) => document.getElementById(id);
@@ -10,7 +7,7 @@ let tabId = null;
 const roots = []; // tree nodes: { id, title, url, isFolder, path, checked, parent, children, loaded, open, el }
 
 async function send(message) {
-  return _browser.tabs.sendMessage(tabId, message);
+  return chrome.tabs.sendMessage(tabId, message);
 }
 
 function makeNode(item, parent) {
@@ -78,6 +75,8 @@ function render() {
   const n = picked.length;
   $('go').disabled = n === 0;
   $('go').textContent = n === 0 ? 'Select folders to download' : `Download ${n} item${n === 1 ? '' : 's'} as Markdown`;
+  $('reset').disabled = n === 0;
+  $('reset').textContent = `Reset answers in ${n} item${n === 1 ? '' : 's'}`;
 }
 
 // Plain-words list of exactly what will be downloaded, with × to remove an item.
@@ -188,7 +187,7 @@ const CACHE_MS = 30 * 60 * 1000;
 async function listFolder(url) {
   const key = `folder:${url}`;
   try {
-    const hit = (await _browser.storage.session.get(key))[key];
+    const hit = (await chrome.storage.session.get(key))[key];
     if (hit && Date.now() - hit.t < CACHE_MS) return hit.data;
   } catch {
     // No cache available: just ask WebLab.
@@ -197,7 +196,7 @@ async function listFolder(url) {
   if (!res || !res.ok) throw new Error((res && res.error) || 'Could not load folder');
   const data = { kind: res.kind, children: res.children };
   try {
-    await _browser.storage.session.set({ [key]: { t: Date.now(), data } });
+    await chrome.storage.session.set({ [key]: { t: Date.now(), data } });
   } catch {
     // Caching is only an optimisation.
   }
@@ -259,13 +258,13 @@ async function revealCurrent(info) {
 }
 
 async function init() {
-  const saved = await _browser.storage.sync.get(DEFAULTS);
+  const saved = await chrome.storage.sync.get(DEFAULTS);
   for (const key of Object.keys(DEFAULTS)) {
     $(key).checked = saved[key];
-    $(key).addEventListener('change', () => _browser.storage.sync.set({ [key]: $(key).checked }));
+    $(key).addEventListener('change', () => chrome.storage.sync.set({ [key]: $(key).checked }));
   }
 
-  const [tab] = await _browser.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !/^https:\/\/weblab\.tudelft\.nl\//.test(tab.url || '')) {
     $('tree').innerHTML = '<div class="note">Open any page of a WebLab course first.</div>';
     return;
@@ -323,6 +322,36 @@ $('go').addEventListener('click', async () => {
   const items = selection().map((n) => ({ url: n.url, path: n.path }));
   try {
     const res = await send({ type: 'wlx-start', items, options: { includeMine: $('includeMine').checked, includeImages: $('includeImages').checked } });
+    if (res && res.ok) window.close();
+    else msg((res && res.error) || 'Could not start.');
+  } catch {
+    msg('Reload this WebLab page, then try again.');
+  }
+});
+
+// Resetting erases answers, so it asks first and names exactly what will be reset.
+$('reset').addEventListener('click', () => {
+  const list = $('confirmList');
+  list.textContent = '';
+  for (const node of selection()) {
+    const li = document.createElement('li');
+    li.textContent = node.path.join(' › ') + (node.isFolder === false ? '' : ' (folder)');
+    list.appendChild(li);
+  }
+  $('confirm').hidden = false;
+  $('confirmNo').focus();
+});
+
+$('confirmNo').addEventListener('click', () => ($('confirm').hidden = true));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') $('confirm').hidden = true;
+});
+
+$('confirmYes').addEventListener('click', async () => {
+  $('confirm').hidden = true;
+  const items = selection().map((n) => ({ url: n.url, path: n.path, isFolder: n.isFolder }));
+  try {
+    const res = await send({ type: 'wlx-reset', items });
     if (res && res.ok) window.close();
     else msg((res && res.error) || 'Could not start.');
   } catch {

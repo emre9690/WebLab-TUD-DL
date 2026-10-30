@@ -1,16 +1,20 @@
 {
   "manifest_version": 3,
   "name": "WebLab Downloader",
-  "version": "1.0.0",
-  "description": "Download WebLab folders (questions, model answers and your own answers) as Markdown files in one zip.",
+  "version": "1.1.0",
+  "description": "Download WebLab folders as Markdown in one zip, and reset your answers in a folder to redo practice exams.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage"],
-  "host_permissions": ["https://weblab.tudelft.nl/*"],
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://weblab.tudelft.nl/*"
+  ],
   "action": {
     "default_popup": "src/popup.html",
     "default_icon": {
@@ -23,22 +27,19 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://weblab.tudelft.nl/*"],
+      "matches": [
+        "https://weblab.tudelft.nl/*"
+      ],
       "js": [
         "src/zip.js",
         "src/markdown.js",
         "src/extract.js",
         "src/crawler.js",
+        "src/reset.js",
         "src/output.js",
         "src/content.js"
       ],
       "run_at": "document_idle"
     }
-  ],
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "enteridhere@emrepls.com",
-      "strict_min_version": "109.0"
-    }
-  }
+  ]
 }
