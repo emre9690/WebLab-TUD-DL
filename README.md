@@ -4,6 +4,8 @@
 
 A browser extension that downloads folders from [WebLab](https://weblab.tudelft.nl) (past exams, practice questions, exercises) as Markdown files in one zip. Upload the result to Claude, ChatGPT or another AI tool to study, practise or look for patterns across exams.
 
+It can also **reset your answers** in a whole folder at once, so you can redo a practice exam from scratch without clicking Reset on every question.
+
 > **Unofficial.** This is a student project. It is not made, endorsed or supported by TU Delft or the WebLab team.
 
 ## What you get
@@ -34,13 +36,39 @@ Two checkboxes in the popup decide what goes in the download. Click the ⓘ next
 
 The popup remembers your choices.
 
+## Reset answers (redo a practice exam)
+
+Under **Download** there's a second button, **Reset answers**. It clears your answers in every question inside the folders you ticked, the same as opening each question, clicking **Re-open your submission**, then **Reset**.
+
+1. Tick the folders or questions you want to redo.
+2. Click **Reset answers**.
+3. A red pop-up lists exactly what will be reset. Click **Yes, reset answers** to go ahead, or **Cancel**.
+4. Keep the tab open until the box in the corner says **Done**, then reload the page.
+
+What happens per question type:
+
+| Question type | What reset does |
+| --- | --- |
+| Multiple choice | Clears your selected options (WebLab's own Reset) |
+| Written / essay | Empties your answer and saves it |
+| Programming | Restores the starting template (WebLab's own Reset). WebLab keeps your old code in comments at the bottom |
+
+Good to know:
+
+- **It can't be undone.** Click **Download** first with **Include my answers** on if you want to keep a copy.
+- WebLab keeps showing questions as *started* or *completed* after a reset. That status is WebLab's own and can't be cleared, but your answers are gone.
+- Questions that were already empty are counted as *already empty*. Anything that couldn't be reset (for example a closed question) is listed at the end.
+- Ticking a whole practice exam also resets questions like "Code of Honour" or "Feedback". Tick only the questions folder if you want to keep those.
+
 ## Install
 
 1. Open **[WebLab Downloader in the Chrome Web Store](https://chromewebstore.google.com/detail/WebLab%20Downloader/kfjoehghihjmpgmdelopjkmkonaobejg)**.
 2. Click **Add to Chrome**, then **Add extension**.
 3. Pin the extension with the puzzle-piece icon in the toolbar.
 
-Also works in **Edge, Brave, Arc, Vivaldi and Opera**, which can install from the Chrome Web Store too (in Edge, click **Allow extensions from other stores** when asked). Firefox and Safari are not supported.
+Also works in **Edge, Brave, Arc, Vivaldi and Opera**, which can install from the Chrome Web Store too (in Edge, click **Allow extensions from other stores** when asked).
+
+Firefox and Safari are not supported.
 
 Updates install automatically.
 
@@ -55,7 +83,6 @@ Updates install automatically.
 To update: download the ZIP again, replace the folder, and click ↻ on the extension in `chrome://extensions`.
 
 </details>
-
 ## Use
 
 1. Log in to WebLab and open any page **inside a course** (not the WebLab home page).
@@ -72,23 +99,30 @@ To update: download the ZIP again, replace the folder, and click ↻ on the exte
 ## Privacy and safety
 
 - It only works on `weblab.tudelft.nl` and runs inside your own browser, using your existing WebLab login. It never sees your password.
-- It only **reads** pages. It never submits answers, posts comments or changes anything.
+- **Download** only reads pages. It never submits answers, posts comments or changes anything.
+- **Reset answers** is the only thing that changes anything on WebLab, and only after you confirm the red pop-up. It clears your own answers in the folders you picked, using WebLab's own Reset and Save buttons. It never submits, marks anything completed, posts comments or touches anyone else's work.
 - It **never unlocks** locked answers (WebLab shows course staff when you unlock one). Locked answers are skipped.
-- Nothing is sent anywhere. The zip is built on your computer.
-- It can only download what your account can already see.
-- It's deliberately gentle on WebLab: one request at a time, at most about three per second, folders are only loaded when you open them (and remembered for 30 minutes), and it stops if WebLab reports it's busy.
+- Nothing is sent anywhere else. The zip is built on your computer.
+- It can only see and change what your account can already see and change.
+- It's deliberately gentle on WebLab:
+  - one request at a time, at most about three per second, and one per second when resetting
+  - only one download or reset at a time, even across several WebLab tabs
+  - a 30-second wait between resets
+  - folders are only loaded when you open them, and remembered for 30 minutes
+  - it stops for a minute if WebLab reports it's busy (in every tab), and stops a reset after three errors in a row
 
 ## Please use it responsibly
 
 Exam questions are the course staff's work. Use downloads for your own studying and don't post them publicly.
 
-**Never use it during an exam.** Only download past exams and practice material, not an exam that is currently running.
+**Never use it during an exam.** Only download or reset past exams and practice material, not an exam that is currently running.
 
 ## Limitations
 
 - Built and tested on a few CSE courses. Other courses may use question types it doesn't handle yet.
 - If WebLab changes its pages, parts of the extension may stop working until it's updated.
 - Correct answers for multiple choice only appear after you've submitted the question, or when a teacher published a model answer.
+- Reset has been tested on multiple choice, written and programming questions. Other question types may be listed as "not reset".
 
 ## Contributing
 

@@ -1,6 +1,3 @@
-// Sets the _browser variable according to the browser currently used (chromium/other)
-const _browser = typeof browser !== 'undefined' ? browser : chrome;
-
 // Runs inside WebLab tabs: receives "start" from the popup, shows progress, saves the zip.
 var WLX = globalThis.WLX || (globalThis.WLX = {});
 
@@ -77,7 +74,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     box.innerHTML = `
       <div style="font-weight:600;margin-bottom:6px">WebLab Downloader</div>
       <div data-status>Starting…</div>
-      <div data-current style="color:#666;font-size:12px;margin-top:4px;word-break:break-word"></div>
+      <div data-current style="color:#666;font-size:12px;margin-top:4px;word-break:break-word;white-space:pre-line;max-height:140px;overflow:auto"></div>
       <div style="margin-top:10px;text-align:right">
         <button data-close style="font:inherit;padding:3px 10px;cursor:pointer">Cancel</button>
       </div>`;
@@ -144,6 +141,75 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     }
   }
 
+  async function runReset(items) {
+    const controller = new AbortController();
+    running = controller;
+    const ui = overlay();
+    ui.onClose(() => {
+      if (running === controller) controller.abort();
+      ui.remove();
+    });
+    const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+    try {
+      const s = await WLX.resetAll(
+        items,
+        (p) => {
+          ui.status(`Reset ${plural(p.reset, 'question')}${p.skipped + p.failed ? ` · ${p.skipped + p.failed} not reset` : ''}… keep this tab open`);
+          ui.current(p.current || '');
+        },
+        controller.signal
+      );
+      ui.status(`Done: reset ${plural(s.reset, 'question')}${s.empty ? ` (${s.empty} already empty)` : ''}.${s.problems.length ? ` Not reset: ${s.problems.length}.` : ''} Reload the page to see it.`);
+      ui.current(s.problems.join('\n'));
+      if (s.problems.length) console.warn('[WebLab Downloader] Not reset:\n' + s.problems.join('\n'));
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      ui.status(`Stopped: ${e.message || e}`);
+      console.error('[WebLab Downloader]', e);
+    } finally {
+      if (running === controller) running = null;
+      ui.done();
+    }
+  }
+
+  // Only one download or reset at a time across all WebLab tabs, so opening more
+  // tabs can't multiply the request rate. Web Locks are shared by every tab of the site.
+  // Resolves true once the job has started, false if another tab holds the lock.
+  function withJobLock(job) {
+    if (!navigator.locks) {
+      job();
+      return Promise.resolve(true);
+    }
+    return new Promise((resolve) => {
+      navigator.locks
+        .request('wlx-job', { ifAvailable: true }, async (lock) => {
+          if (!lock) return resolve(false);
+          resolve(true);
+          await job();
+        })
+        .catch(() => resolve(false));
+    });
+  }
+
+  // A short wait between reset runs, shared by all WebLab tabs.
+  const RESET_COOLDOWN_MS = 30_000;
+  const COOLDOWN_KEY = 'wlx-reset-cooldown-until';
+  function resetCooldownLeft() {
+    try {
+      return Math.max(0, (Number(localStorage.getItem(COOLDOWN_KEY)) || 0) - Date.now());
+    } catch {
+      return 0;
+    }
+  }
+  function startResetCooldown() {
+    try {
+      localStorage.setItem(COOLDOWN_KEY, String(Date.now() + RESET_COOLDOWN_MS));
+    } catch {
+      // Not critical: the other limits still apply.
+    }
+  }
+
   async function handle(msg) {
     if (msg.type === 'wlx-course') {
       const prefix = coursePrefix();
@@ -154,16 +220,30 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
       return { ok: true, running: !!running, inCourse: true, ...info, top };
     }
     if (msg.type === 'wlx-list') return { ok: true, ...(await listFolder(msg.url)) };
-    if (msg.type === 'wlx-start') {
-      if (running) return { ok: false, error: 'A download is already running in this tab.' };
+    if (msg.type === 'wlx-start' || msg.type === 'wlx-reset') {
+      if (running) return { ok: false, error: 'Something is already running in this tab.' };
       if (!msg.items || !msg.items.length) return { ok: false, error: 'Select at least one folder.' };
-      run(msg.items, msg.options || {});
+      const paused = Math.ceil(WLX.pausedFor() / 1000);
+      if (paused) return { ok: false, error: `WebLab was busy a moment ago. Please try again in ${paused} seconds.` };
+      const isReset = msg.type === 'wlx-reset';
+      const cooldown = isReset ? Math.ceil(resetCooldownLeft() / 1000) : 0;
+      if (cooldown) return { ok: false, error: `You just reset answers. Please wait ${cooldown} seconds before resetting again.` };
+      const started = await withJobLock(async () => {
+        if (isReset) {
+          await runReset(msg.items);
+          startResetCooldown();
+        } else {
+          await run(msg.items, msg.options || {});
+        }
+      });
+      if (!started) return { ok: false, error: 'The extension is already busy in another WebLab tab. Wait for it to finish first.' };
       return { ok: true };
     }
-    return { ok: false, error: 'Unknown request' };
+    // Usually an older copy of this script, still running after the extension was updated.
+    return { ok: false, error: 'The extension was updated. Reload this WebLab page, then try again.' };
   }
 
-  _browser.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg || !String(msg.type).startsWith('wlx-')) return false;
     handle(msg).then(sendResponse, (e) => sendResponse({ ok: false, error: String(e.message || e) }));
     return true; // async response

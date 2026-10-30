@@ -14,6 +14,10 @@
         --orange: #ff5a00;
         --orange-hover: #e65100;
         --danger: #c62828;
+        --red: #d50000;
+        --red-hover: #b00000;
+        --red-tint: #ffebee;
+        --red-text: #b00000;
       }
       @media (prefers-color-scheme: dark) {
         :root {
@@ -25,6 +29,8 @@
           --hover: #2c313a;
           --navy: #8fb3ff;
           --danger: #ff7b7b;
+          --red-tint: #3a1416;
+          --red-text: #ff8a8a;
         }
       }
       * { box-sizing: border-box; }
@@ -80,6 +86,25 @@
       button#go { width: 100%; padding: 9px; font: inherit; font-weight: 600; color: #fff; background: var(--orange); border: 0; border-radius: 8px; cursor: pointer; }
       button#go:hover:not(:disabled) { background: var(--orange-hover); }
       button#go:disabled { background: var(--border); color: var(--muted); cursor: default; }
+      button#reset { width: 100%; margin-top: 8px; padding: 8px; font: inherit; font-weight: 600; color: var(--red-text); background: var(--red-tint); border: 1px solid var(--red); border-radius: 8px; cursor: pointer; }
+      button#reset:hover:not(:disabled) { color: #fff; background: var(--red); }
+      button#reset:disabled { display: none; }
+
+      #confirm { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 14px; background: rgba(120, 0, 0, 0.55); }
+      #confirm[hidden] { display: none; }
+      body:has(#confirm:not([hidden])) { min-height: 440px; }
+      #confirm .box { width: 100%; overflow: hidden; background: var(--red-tint); border: 2px solid var(--red); border-radius: 12px; box-shadow: 0 8px 24px rgba(120, 0, 0, 0.45); }
+      #confirm h2 { margin: 0; padding: 10px 14px; font-size: 15px; color: #fff; background: var(--red); }
+      #confirm h2::before { content: "⚠ "; }
+      #confirm .body { padding: 12px 14px 14px; }
+      #confirm p { margin: 0 0 8px; }
+      #confirm ul { max-height: 150px; overflow-y: auto; margin: 0 0 8px; padding: 6px 8px 6px 22px; list-style: disc; color: var(--red-text); font-weight: 600; background: var(--bg); border: 1px solid var(--red); border-radius: 8px; }
+      #confirm li { padding: 1px 0; word-break: break-word; }
+      #confirm .actions { display: flex; gap: 8px; margin-top: 12px; }
+      #confirm .actions button { flex: 1; padding: 8px; font: inherit; border-radius: 8px; cursor: pointer; }
+      #confirmNo { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+      #confirmYes { background: var(--red); color: #fff; border: 0; font-weight: 700; }
+      #confirmYes:hover { background: var(--red-hover); }
       #msg { margin-top: 8px; color: var(--danger); font-size: 12px; min-height: 1em; }
 
     </style>
@@ -129,6 +154,21 @@
     </div>
 
     <button id="go" disabled>Select folders to download</button>
+    <button id="reset" disabled title="Clears your saved answers, like clicking Re-open → Reset on every question">Reset answers</button>
+
+    <div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+      <div class="box">
+        <h2 id="confirmTitle">Are you very sure you want to reset answers?</h2>
+        <div class="body">
+        <p>Your saved answers in <strong>every question</strong> inside these will be reset:</p>
+        <ul id="confirmList"></ul>
+        <div class="actions">
+          <button id="confirmNo">Cancel</button>
+          <button id="confirmYes">Yes, reset answers</button>
+        </div>
+        </div>
+      </div>
+    </div>
     <div id="msg"></div>
     <script src="popup.js"></script>
   </body>

@@ -27,16 +27,37 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
   // through this one queue: one request at a time, at least REQUEST_GAP_MS apart,
   // so the extension can never send WebLab more than ~3 requests per second.
   WLX.REQUEST_GAP_MS = 350;
+  // Saving or resetting an answer is heavier for WebLab than loading a page, so wait longer after one.
+  WLX.WRITE_GAP_MS = 1000;
   let queue = Promise.resolve();
-  let lastStart = 0;
-  let pausedUntil = 0;
+  let nextAllowed = 0;
 
-  function politely(task, signal) {
+  // An overload pause is kept in WebLab's localStorage, so it holds in every WebLab
+  // tab and after a reload, not just in the tab that hit it.
+  const PAUSE_KEY = 'wlx-paused-until';
+  function pausedUntil() {
+    try {
+      return Number(localStorage.getItem(PAUSE_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+  function pause(ms) {
+    try {
+      localStorage.setItem(PAUSE_KEY, String(Date.now() + ms));
+    } catch {
+      // Without storage the pause still stops this run.
+    }
+  }
+  WLX.pausedFor = () => Math.max(0, pausedUntil() - Date.now());
+
+  function politely(task, signal, gap = WLX.REQUEST_GAP_MS) {
     const run = queue.then(async () => {
-      const wait = Math.max(lastStart + WLX.REQUEST_GAP_MS, pausedUntil) - Date.now();
+      if (WLX.pausedFor()) throw fatal('WebLab was busy a moment ago, so the extension is pausing. Please try again in a minute.');
+      const wait = nextAllowed - Date.now();
       if (wait > 0) await sleep(wait, signal);
       if (signal?.aborted) throw aborted();
-      lastStart = Date.now();
+      nextAllowed = Date.now() + gap;
       return task();
     });
     queue = run.catch(() => {});
@@ -45,18 +66,18 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
 
   // Sends one request through the queue. If WebLab says it's overloaded, back off
   // for a minute and stop instead of retrying.
-  async function request(url, signal) {
+  async function request(url, signal, init = {}, gap) {
     let res;
     try {
-      res = await politely(() => fetch(url, { credentials: 'include', signal }), signal);
+      res = await politely(() => fetch(url, { ...init, credentials: 'include', signal }), signal, gap);
     } catch (e) {
-      if (e.name === 'AbortError') throw e;
+      if (e.name === 'AbortError' || e.fatal) throw e;
       // A dropped connection, or an expired session redirecting to TU Delft's login site.
       throw fatal("Couldn't reach WebLab. Check that you're online and still logged in, then try again.");
     }
     if (res.status === 429 || res.status === 503) {
-      pausedUntil = Date.now() + 60_000;
-      throw fatal('WebLab is busy right now, so the download was stopped. Please try again later.');
+      pause(60_000);
+      throw fatal('WebLab is busy right now, so the extension stopped. Please try again later.');
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res;
@@ -172,7 +193,7 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         img.bytes = new Uint8Array(await res.arrayBuffer());
       } catch (e) {
-        if (e.name === 'AbortError') throw e;
+        if (e.name === 'AbortError' || e.fatal) throw e;
         img.error = String(e.message || e);
       }
     }
@@ -186,7 +207,15 @@ var WLX = globalThis.WLX || (globalThis.WLX = {});
     return { kind: node.kind, title: node.title, children: node.kind === 'folder' ? node.children : [] };
   }
 
+  // Sends a WebLab button action (same queue and limits as page loads).
+  async function postForm(url, formData, signal) {
+    const res = await request(url, signal, { method: 'POST', body: formData }, WLX.WRITE_GAP_MS);
+    return res.text();
+  }
+
   WLX.crawl = crawl;
   WLX.listFolder = listFolder;
+  WLX.fetchDoc = fetchDoc;
+  WLX.postForm = postForm;
   WLX.slug = slug;
 })();
